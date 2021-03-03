@@ -1,45 +1,99 @@
 package com.maikkkko1.form_validators
 
-import android.text.TextUtils
-import android.util.Patterns
 import com.maikkkko1.form_validators.entity.RuleValidationResult
+import com.maikkkko1.form_validators.validators.*
+import java.util.*
 
-class Validator constructor(private val value: String?) {
+class Validator constructor(private val value: Any?) {
     fun isValidBasedOnRules(rulesToValidate: List<ValidatorRule>): RuleValidationResult {
         for (rule in rulesToValidate) {
             when (rule) {
                 is ValidatorRule.MustHaveLetterAndNumbers -> {
-                    val regex = value?.matches("\\S*(\\S*([a-zA-Z]\\S*[0-9])|([0-9]\\S*[a-zA-Z]))\\S*".toRegex()) ?: false
-
-                    if (!regex) {
+                    if (!containsLetterAndNumbers(value?.toString())) {
                         return RuleValidationResult(isValid = false, message = "Must contain letters and numbers!")
                     }
                 }
 
-                is ValidatorRule.MustHaveTheMinimumLength -> {
-                    if (value?.length ?: 0 < rule.size) {
+                is ValidatorRule.MustHaveMinimumLength -> {
+                    if (value?.toString()?.length ?: 0 < rule.size) {
                         return RuleValidationResult(isValid = false, message = "Size must be at least ${rule.size}!")
                     }
                 }
 
+                is ValidatorRule.MustHaveMaximumLength -> {
+                    if (value?.toString()?.length ?: 0 > rule.size) {
+                        return RuleValidationResult(isValid = false, message = "Size must be a maximum of ${rule.size}!")
+                    }
+                }
+
                 is ValidatorRule.MustNotBeEmptyOrNull -> {
-                    if (value.isNullOrEmpty()) {
+                    if (value?.toString().isNullOrEmpty()) {
                         return RuleValidationResult(isValid = false, message = "Must not be empty or null!")
                     }
                 }
 
                 is ValidatorRule.MustBeValidEmail -> {
-                    if (!isValidEmail(value)) {
+                    if (!isValidEmail(value?.toString())) {
                         return RuleValidationResult(isValid = false, message = "Must be a valid email!")
                     }
                 }
+
+                is ValidatorRule.MustBeValidRegex -> {
+                    if (!value.toString().matches(rule.regex.toRegex())) {
+                        return returnMustBeAValidValue()
+                    }
+                }
+
+                is ValidatorRule.MustBeValidCondition -> {
+                    if (!rule.condition.invoke()) {
+                        return returnMustBeAValidValue()
+                    }
+                }
+
+                is ValidatorRule.MustBeBetweenTwoIntegers -> {
+                    val valueToNumber = value as? Int ?: 0
+
+                    if (valueToNumber < rule.firstValue && valueToNumber > rule.secondValue) {
+                        return RuleValidationResult(isValid = false, message = "Must be a value between ${rule.firstValue} and ${rule.secondValue}!")
+                    }
+                }
+
+                is ValidatorRule.MustBeBetweenTwoDates -> {
+                    val valueToDate = value as? Date
+
+
+                   if (valueToDate != null) {
+                       if (!valueToDate.before(rule.firstDate) || !valueToDate.after(rule.secondDate)) {
+                           return returnMustBeAValidValue()
+                       }
+                   } else {
+                       return returnMustBeAValidValue()
+                   }
+                }
+
+                is ValidatorRule.MustBeValidCreditCard -> {
+                    if (!isValidCreditCard(value?.toString() ?: "")) {
+                        return RuleValidationResult(isValid = false, message = "Must be a valid credit card!")
+                    }
+                }
+
+                is ValidatorRule.MustBeValidCanadianPostalCode -> {
+                    if (!isValidCanadianPostalCode(value?.toString() ?: "")) {
+                        return RuleValidationResult(isValid = false, message = "Must be a valid canadian postal code!")
+                    }
+                }
+
+                is ValidatorRule.MustBeValidBrazilianCPF -> {
+                    if (!isValidCPF(value?.toString() ?: "")) {
+                        return RuleValidationResult(isValid = false, message = "Must be a valid brazilian CPF!")
+                    }
+                }
+
             }
         }
 
         return RuleValidationResult(isValid = true, message = null)
     }
 
-    private fun isValidEmail(target: CharSequence?): Boolean =
-            !TextUtils.isEmpty(target) && Patterns.EMAIL_ADDRESS.matcher(target)
-                    .matches()
+    private fun returnMustBeAValidValue() = RuleValidationResult(isValid = false, message = "Must be a valid value!")
 }
